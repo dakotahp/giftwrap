@@ -1,9 +1,13 @@
 watch = require("watch")
 ffmpeg = require("fluent-ffmpeg")
 Metalib = require("fluent-ffmpeg").Metadata
-watchFileExt = ["mkv", "2t", "m2ts"]
+ProgressBar = require('progress')
+bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
+
+watchFileExt = ["mkv", "ts", "m2ts"]
 _videoMetadata = {}
 _lastEventTime = 0
+_conversionProgress = 0
 _getFfmpegProfile = (file, callback) ->
   ffmpeg.call ["-i " + file], (params, params2) ->
     console.log params, params2
@@ -42,7 +46,11 @@ _processVideo = (options) ->
     source: options.source
     timeout: 60 * 60
   ).withVideoCodec(options.videoCodec).withAudioCodec(options.audioCodec).withAudioBitrate(options.audioBitrate).addOption("-strict", "-2").onProgress((progress) ->
-    console.log "Progress: " + progress
+    localProgress = Math.round progress.percent
+    #console.log "Progress: " + localProgress.toString() + "%" if localProgress > _conversionProgress
+    bar.tick if localProgress > _conversionProgress
+    bar.tick progress.percent
+    _conversionProgress = localProgress
   ).toFormat(options.outputExt).saveToFile(outputFilename, (retcode, error) ->
     console.log "SUCCESS: File processed to " + outputFilename + "\n"
   )
