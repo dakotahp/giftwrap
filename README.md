@@ -1,4 +1,4 @@
-# App name
+# Giftwrap
 
 A Node.js app that watches a folder for videos in formats and wrappers that nobody can use (MKV, 2t, etc.) and transmuxes them to MP4 so that people can actually do something with them (read: AirPlay to Apple TV.)
 
@@ -8,11 +8,19 @@ A Node.js app that watches a folder for videos in formats and wrappers that nobo
 - NPM (If you have Node.js, you should already have/want this.)
 - ffmpeg
 - libx264
-- Coffeescript (This can be avoided by converting the app CS to JS yourself.)
+- Coffeescript (This can be avoided by running `node application.js`)
 
 # Installation
 
 Make sure you have all the dependencies and run the app with `coffee application.coffee`
+
+# Usage
+
+`coffee application.coffee`
+
+If you don't want to install CoffeeScript, run the JS instead:
+
+`node application.js`
 
 # How It Works
 
