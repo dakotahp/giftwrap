@@ -1,6 +1,6 @@
 {
   "name": "app-name",
-  "version": "0.5",
+  "version": "0.5.0",
   "description": "An automatic MKV to Apple TV H.264 converter",
   "keywords": [
     "ffmpeg",
@@ -27,5 +27,5 @@
     "progress": "0.0.5"
   },
   "engines" : { "node" : ">=0.8.8" },
-  "main": "application",
+  "main": "application"
 }
