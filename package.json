@@ -18,13 +18,15 @@
     "coffee-script": "latest",
     "watch": "latest",
     "fluent-ffmpeg": "latest",
-    "progress": "latest"
+    "progress": "latest",
+    "start-stop-daemon": "latest"
   },
   "dependencies": {
     "coffee-script": "1.3.x",
     "watch": "0.5.x",
     "fluent-ffmpeg": "1.2.x",
-    "progress": "0.0.5"
+    "progress": "0.0.5",
+    "start-stop-daemon": "0.0.x"
   },
   "engines" : { "node" : ">=0.8.8" },
   "main": "application"

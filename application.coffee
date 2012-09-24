@@ -2,6 +2,8 @@ watch = require("watch")
 ffmpeg = require("fluent-ffmpeg")
 Metalib = require("fluent-ffmpeg").Metadata
 ProgressBar = require('progress')
+startStopDaemon = require("start-stop-daemon")
+
 bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
 
 watchFileExt = ["mkv", "ts", "m2ts"]
@@ -48,8 +50,8 @@ _processVideo = (options) ->
   ).withVideoCodec(options.videoCodec).withAudioCodec(options.audioCodec).withAudioBitrate(options.audioBitrate).addOption("-strict", "-2").onProgress((progress) ->
     localProgress = Math.round progress.percent
     #console.log "Progress: " + localProgress.toString() + "%" if localProgress > _conversionProgress
-    bar.tick if localProgress > _conversionProgress
-    bar.tick progress.percent
+    #bar.tick if localProgress > _conversionProgress
+    #bar.tick progress.percent
     _conversionProgress = localProgress
   ).toFormat(options.outputExt).saveToFile(outputFilename, (retcode, error) ->
     console.log "SUCCESS: File processed to " + outputFilename + "\n"
@@ -64,29 +66,30 @@ _validFiletype = (file) ->
 _notDuplicateEvent = ->
   new Date().getTime() - _lastEventTime < 20
 
-watch.createMonitor "./process", (monitor) ->
-  monitor.on "created", (file, stat) ->
-    return if not _validFiletype(file) or _notDuplicateEvent()
-    metaObject = new Metalib(file)
-    metaObject.get (metadata, err) ->
-      _videoMetadata = metadata
 
-      #console.log(require('util').inspect(metadata, false, null));
-      console.log "########", "Starting to process " + file
-      _processVideo
-        source: file
-        audioCodec: _getAudioCodec(metadata)
-        videoCodec: _getVideoCodec(metadata)
+startStopDaemon({}, () ->
+  watch.createMonitor "./process", (monitor) ->
+    monitor.on "created", (file, stat) ->
+      return if not _validFiletype(file) or _notDuplicateEvent()
+      metaObject = new Metalib(file)
+      metaObject.get (metadata, err) ->
+        _videoMetadata = metadata
 
-
-    _lastEventTime = new Date().getTime()
-
-  monitor.on "changed", (file, curr, prev) ->
-    for i of watchFileExt
-      re = new RegExp("." + watchFileExt[i] + "$", "i")
-      if file.match(re)
-        metaObject = new Metalib(file)
-        metaObject.get (metadata, err) ->
-          #_videoMetadata = metadata
+        #console.log(require('util').inspect(metadata, false, null));
+        console.log "########", "Starting to process " + file
+        _processVideo
+          source: file
+          audioCodec: _getAudioCodec(metadata)
+          videoCodec: _getVideoCodec(metadata)
 
 
+      _lastEventTime = new Date().getTime()
+
+    monitor.on "changed", (file, curr, prev) ->
+      for i of watchFileExt
+        re = new RegExp("." + watchFileExt[i] + "$", "i")
+        if file.match(re)
+          metaObject = new Metalib(file)
+          metaObject.get (metadata, err) ->
+            #_videoMetadata = metadata
+)

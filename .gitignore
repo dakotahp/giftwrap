@@ -1,1 +1,5 @@
 node_modules
+
+/application.coffee.dmn
+/application.coffee.err
+/application.coffee.out
