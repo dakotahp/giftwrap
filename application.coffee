@@ -6,7 +6,7 @@ startStopDaemon = require("start-stop-daemon")
 
 bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
 
-watchFileExt = ["mkv", "ts", "m2ts"]
+watchFileExt = ["mkv", "ts", "m2ts", "avi"]
 _videoMetadata = {}
 _lastEventTime = 0
 _conversionProgress = 0
