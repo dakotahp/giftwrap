@@ -7,7 +7,8 @@ startStopDaemon = require("start-stop-daemon")
 
 bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
 
-watchFileExt = ["mkv", "ts", "m2ts"]
+# File types to watch for
+watchFileExt = ["mkv", "ts", "m2ts", "avi"]
 # Move input video files to trash after processing
 cleanup = true
 
