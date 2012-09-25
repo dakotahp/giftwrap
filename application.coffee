@@ -1,12 +1,16 @@
-watch = require("watch")
-ffmpeg = require("fluent-ffmpeg")
-Metalib = require("fluent-ffmpeg").Metadata
-ProgressBar = require('progress')
+fs              = require("fs")
+watch           = require("watch")
+ffmpeg          = require("fluent-ffmpeg")
+Metalib         = require("fluent-ffmpeg").Metadata
+ProgressBar     = require('progress')
 startStopDaemon = require("start-stop-daemon")
 
 bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
 
 watchFileExt = ["mkv", "ts", "m2ts"]
+# Move input video files to trash after processing
+cleanup = true
+
 _videoMetadata = {}
 _lastEventTime = 0
 _conversionProgress = 0
@@ -55,6 +59,7 @@ _processVideo = (options) ->
     _conversionProgress = localProgress
   ).toFormat(options.outputExt).saveToFile(outputFilename, (retcode, error) ->
     console.log "SUCCESS: File processed to " + outputFilename + "\n"
+    _trashInputFile outputFilename
   )
 
 _validFiletype = (file) ->
@@ -66,6 +71,10 @@ _validFiletype = (file) ->
 _notDuplicateEvent = ->
   new Date().getTime() - _lastEventTime < 20
 
+_trashInputFile = (file) ->
+  if cleanup
+    fs.rename file, "~/.Trash"
+    console.log "Moving file to trash"
 
 startStopDaemon({}, () ->
   watch.createMonitor "./process", (monitor) ->
