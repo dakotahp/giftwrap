@@ -1,3 +1,7 @@
+# Enable web interface at http://localhost:5000 - requires redis to be installed or Redis To Go cloud service credentials
+web_interface = true 
+redistogo_url = "" # replace with Redis To Go URL if you don't install redis locally
+
 fs              = require("fs")
 watch           = require("watch")
 ffmpeg          = require("fluent-ffmpeg")
