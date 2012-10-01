@@ -10,6 +10,8 @@ cleanup = true
 
 # Automatically moves finished file to iTunes' watched folder (~/Music/iTunes/iTunes Media/Automatically Add to iTunes/) and added to iTunes library
 automaticallyAddToItunes = true
+# By default output file is MOVED to iTunes. Set to true if you want to copy instead and leave file in output folder
+copyNotMoveToItunes = false
 
 # Enable web interface at http://localhost:5000 - requires redis to be installed or Redis To Go cloud service credentials
 web_interface = false
@@ -32,12 +34,22 @@ Metalib         = require("fluent-ffmpeg").Metadata
 ProgressBar     = require('progress')
 startStopDaemon = require("start-stop-daemon")
 
+# Libraries
+
+# Queueing mechanism for preventing duplicate system events and processing multiple files
+Queue = require("./lib/queue")
+queue = new Queue.class()
+
+
+
 bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
 
 _videoMetadata = {}
-_lastEventTime = 0
 _conversionProgress = 0
-_home = process.env.HOME
+
+_home        = process.env.HOME
+iTunesFolder = _home + "/Music/iTunes/iTunes Media/Automatically Add to iTunes/"
+trashFolder  = _home + "/.Trash/"
 
 _getFfmpegProfile = (file, callback) ->
   ffmpeg.call ["-i " + file], (params, params2) ->
@@ -98,7 +110,7 @@ _processVideo = (options) ->
   )
 
 _moveToItunes = (source, destination) ->
-  destinationFile = _home + "/Music/iTunes/iTunes Media/Automatically Add to iTunes/#{destination}"
+  destinationFile = iTunesFolder + destination
   fs.rename(source, destinationFile, (error) ->
     if error
       console.error(error)
@@ -107,7 +119,7 @@ _moveToItunes = (source, destination) ->
   )
 
 _trashSourceFile = (source, destination) ->
-    destinationFile = _home + "/.Trash/#{destination}"
+    destinationFile = trashFolder + destination
     fs.rename(source, destinationFile, (error) ->
       if error
         console.error(error)
@@ -136,26 +148,26 @@ _validFiletype = (file) ->
     return true  if file.match(regex)
   false
 
-_notDuplicateEvent = ->
-  new Date().getTime() - _lastEventTime < 20
 
 startStopDaemon({}, () ->
   watch.createMonitor watchFolder, (monitor) ->
     monitor.on "created", (file, stat) ->
-      return if not _validFiletype(file) or _notDuplicateEvent()
+      inQueueAlready = queue.in file
+      queue.add file unless inQueueAlready
+
+      # Do not proceed if duplicate file system event
+      return if not _validFiletype(file) or inQueueAlready
+
       metaObject = new Metalib(file)
       metaObject.get (metadata, err) ->
         _videoMetadata = metadata
 
         #console.log(require('util').inspect(metadata, false, null));
-        console.log "########", "Starting to process " + file
+        console.log "Starting to process #{file}"
         _processVideo
           source: file
           audioCodec: _getAudioCodec(metadata)
           videoCodec: _getVideoCodec(metadata)
-
-
-      _lastEventTime = new Date().getTime()
 
     monitor.on "changed", (file, curr, prev) ->
       for i of watchFileExt
