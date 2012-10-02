@@ -1,17 +1,27 @@
+# Statuses: queued, started, finished, error
+
 class Queue
   constructor: ->
     @q = []
+    @autoIncrement = 0
 
   add: (filename) ->
-    console.log "Q: adding "+filename
-    @q.push filename
+    timestamp = Math.round(Date.now() * .001)
+    @q[@autoIncrement] = 
+      file: filename
+      created_at: timestamp
+      processing_started: null
+      processing_ended: null
+      status: 'queued'
 
-  delete: (filename) ->
-    @q[filename]
+    @autoIncrement++
+
+  delete: (id) ->
+    delete @q[id]
 
   in: (filename) ->
-    for currentFilename in @q
-      return true if currentFilename is filename
+    for current in @q
+      return true if current.file is filename
 
     false
 
