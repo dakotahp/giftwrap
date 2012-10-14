@@ -1,9 +1,10 @@
+SETTINGS = {}
 ##
 # CONFIGURATION START
 ##
 
 # File types to watch for
-watchFileExt = ["mkv", "ts", "m2ts", "avi"]
+SETTINGS.watchFileExt = watchFileExt = ["mkv", "ts", "m2ts", "avi"]
 
 # Move source video files to trash after processing
 cleanup = false
@@ -14,15 +15,13 @@ automaticallyAddToItunes = true
 # By default output file is MOVED to iTunes. Set to true if you want to copy instead and leave file in output folder
 copyToItunes = true
 
-# Enable web interface at http://localhost:5000 -
-web_interface = false
-
-redistogo_url = "" # replace with Redis To Go URL if you don't install redis locally
+# Enable web interface at http://localhost:4000
+SETTINGS.webInterface = true
 
 # Watch folder for incoming video files
 #   (If you change this folder to a different drive as your boot drive it may cause 
 #    issues because of the way Node copies files. Submit a GitHub issue if you run into problems.)
-watchFolder = "./process"
+SETTINGS.watchFolder = watchFolder = "./process"
 
 ##
 # CONFIGURATION END
@@ -62,7 +61,6 @@ process = new Process.class({
 
 
 _videoMetadata = {}
-_conversionProgress = 0
 
 _home        = process.env.HOME
 iTunesFolder = _home + "/Music/iTunes/iTunes Media/Automatically Add to iTunes/"
@@ -92,9 +90,14 @@ _getVideoCodec = (metadata) ->
   else
     "libx264"
 
-_processVideo = (options) ->
+_processVideo = () ->
+  options = {}
   options.outputExt    = "mp4"
   options.audioBitrate = "384k"
+  options.videoCodec = queue.q[queue.current].x_video_codec
+  options.audioCodec = queue.q[queue.current].x_audio_codec
+  options.source = queue.q[queue.current].file
+  options.position = queue.current
 
   queue.setStart(options.position)
 
@@ -112,13 +115,12 @@ _processVideo = (options) ->
   ).withVideoCodec(options.videoCodec)
   .withAudioCodec(options.audioCodec)
   .withAudioBitrate(options.audioBitrate)
-  .addOption("-strict", "-2").onProgress((progress) ->
-    localProgress = Math.round progress.percent  
-    queue.updateProgress progress, options.position
-
-    #console.log "Progress: " + localProgress.toString() + "%" if localProgress > _conversionProgress
-    _conversionProgress = localProgress
-  ).toFormat(options.outputExt)
+  .addOption("-strict", "-2")
+  .onProgress( (progress) ->
+    console.log progress.percent
+    queue.updateProgress(Math.round(progress.percent))
+  )
+  .toFormat(options.outputExt)
   .saveToFile(outputFile, (retcode, error) ->
     console.log "- File successfully processed to #{outputFile}"
     
@@ -130,11 +132,13 @@ _processVideo = (options) ->
 
     # Clean up old file
     console.log '_trashSourceFile', options.source, sourcePath
-    _trashSourceFile(sourcePath, sourcePath) if cleanup and !error
+    _trashSourceFile(sourcePath, sourcePath) if cleanup
 
     # Move to iTunes inbox folder
     console.log '_moveToItunes', outputFile, outputFilename
-    _moveToItunes(outputFile, outputFilename) if automaticallyAddToItunes and !error
+    _moveToItunes(outputFile, outputFilename) if automaticallyAddToItunes
+
+    _processVideo() if queue.next()
   )
 
 _moveToItunes = (source, destination) ->
@@ -168,33 +172,51 @@ startStopDaemon({}, () ->
       pieces = file.split("/")
       filename = pieces[ pieces.length - 1 ]
 
-      inQueueAlready = queue.in filename
+      metaObject = new Metalib(file)
+      metaObject.get (metadata, err) ->
+        return if not _validFiletype(filename)
+        _videoMetadata = metadata
+        inQueueAlready = queue.in(filename)
 
-      position = queue.add(filename) unless inQueueAlready
+        if not inQueueAlready
+          queue.add(
+            filename: filename
+            x_audio_codec: _getAudioCodec(metadata)
+            x_video_codec: _getVideoCodec(metadata)
+          )
+        
+        #console.log(require('util').inspect(metadata, false, null))
 
-      # Do not proceed if duplicate file system event
-      return if not _validFiletype(filename) or inQueueAlready
+        # Do not proceed if duplicate file system event
+        return if inQueueAlready
+
+        # Let's go!
+        _processVideo() if not queue.running
+
+    monitor.on "changed", (file, curr, prev) ->
+      pieces = file.split("/")
+      filename = pieces[ pieces.length - 1 ]
 
       metaObject = new Metalib(file)
       metaObject.get (metadata, err) ->
+        return if not _validFiletype(filename)
         _videoMetadata = metadata
+        inQueueAlready = queue.in(filename)
+
+        if not inQueueAlready
+          queue.add(
+            filename: filename
+            x_audio_codec: _getAudioCodec(metadata)
+            x_video_codec: _getVideoCodec(metadata)
+          )
+        
         #console.log(require('util').inspect(metadata, false, null))
-        #process.next()
 
-        _processVideo
-          source: filename
-          audioCodec: _getAudioCodec(metadata)
-          videoCodec: _getVideoCodec(metadata)
-          position: position
+        # Do not proceed if duplicate file system event
+        return if inQueueAlready
 
-
-    monitor.on "changed", (file, curr, prev) ->
-      for i of watchFileExt
-        re = new RegExp("." + watchFileExt[i] + "$", "i")
-        if file.match(re)
-          metaObject = new Metalib(file)
-          metaObject.get (metadata, err) ->
-            #_videoMetadata = metadata
+        # Let's go!
+        _processVideo() if not queue.running      
 )
 
 app = express()
@@ -204,7 +226,7 @@ app.configure ->
   app.set "views", __dirname + "/web/views"
   app.set "view engine", "ejs"
   app.use express.favicon()
-  app.use express.logger("dev")
+  #app.use express.logger("dev")
   app.use express.bodyParser()
   app.use express.methodOverride()
   #app.use express.cookieParser("your secret here")
@@ -218,7 +240,10 @@ app.get "/", (req, res) ->
   res.render 'index',
     queue: queue.dump()
 
-http.createServer(app).listen app.get("port"), ->
-  console.log "Express server listening on port " + app.get("port")
+app.get "/settings", (req, res) ->
+  res.render 'settings',
+    settings: SETTINGS
 
-
+if SETTINGS.webInterface
+  http.createServer(app).listen app.get("port"), ->
+    console.log "Express server listening on port " + app.get("port")

@@ -4,17 +4,20 @@ class Queue
   constructor: ->
     @q = []
     @current = 0
+    @running = false
 
-  add: (filename) ->
-    timestamp = Date.now()
+  add: (options) ->
     @q.push 
-      file: filename
+      file: options.filename
       priority: 0
       progress: 0
       status: 'queued'
       processing_started: 0
       processing_ended: 0
-      created_at: timestamp
+      created_at: Date.now()
+      x_audio_codec: options.x_audio_codec
+      x_video_codec: options.x_video_codec
+
     @current = @q.length - 1
     @current
 
@@ -23,6 +26,7 @@ class Queue
       if current.status is 'queued'
         @current = _i
         return current
+    false
 
   delete: (id) ->
     delete @q[id]
@@ -35,18 +39,20 @@ class Queue
   dump: ->
     return @q
 
-  updateProgress: (progress, current) ->
-    @q[current].progress = progress
+  updateProgress: (progress) ->
+    @q[@current].progress = progress
 
-  updateStatus: (status, current) ->
-    @q[current].status = status
+  updateStatus: (status) ->
+    @q[@current].status = status
 
-  setStart: (current) ->
-    @q[current].processing_started = Date.now()
-    @q[current].status = "started"
+  setStart: ->
+    @q[@current].processing_started = Date.now()
+    @q[@current].status = "started"
+    @running = true
 
-  setEnd: (current) ->
-    @q[current].processing_ended = Date.now()
-    @q[current].status = "finished"
+  setEnd: ->
+    @q[@current].processing_ended = Date.now()
+    @q[@current].status = "finished"
+    @running = false
 
 exports.class = Queue

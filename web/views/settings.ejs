@@ -1,0 +1,17 @@
+<form action="/settings" method="post">
+
+  <label>Watched file types</label>
+  <input type="text" value="<%= settings.watchFileExt %>" placeholder="mkv,ts,m2ts,avi">
+  <span class="help-block">Comma separated file extensions.</span>
+
+  <label>Cleanup processed files</label>
+  <select name="cleanup">
+    <option value="true">Yes</option>
+    <option value="false">No</option>
+  </select>
+  <span class="help-block">Move old input files to trash.</span>
+
+  <label>Processing folder</label>
+  <input type="text" name="watch_folder" value="<%= settings.watchFolder %>" placeholder="./process">
+
+</form>

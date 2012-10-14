@@ -27,12 +27,25 @@
 
     <section class="container">
       
-      <div class="hero-unit">
-        <h1>Giftwrap</h1>
-        <p>Tagline</p>
-      </div>  
+      <div class="page-header">
+        <h1>Giftwrap <small>Rewrap MKV (and others) to Apple TV format.</small></h1>
+      </div>
 
-      <button type="button" class="btn" data-toggle="button" id="auto-refresh">Auto-refresh</button>
+      <div class="pull-right">
+        <button type="button" class="btn" data-toggle="button" id="auto-refresh" title="Auto-refresh"><i class="icon-refresh"></i></button>
+
+        <a 
+          href="/settings" 
+          data-target="#settingsModal" 
+          role="button" 
+          class="btn" 
+          data-toggle="modal"
+          data-backdrop="false"
+          >
+            <i class="icon-wrench"></i> Settings
+        </a>
+      </div>
+      <br class="clearfix">
       <p>&nbsp;</p>
 
       <% if (queue.length == 0) { %>
@@ -47,8 +60,8 @@
             <tr>
               <th>Filename</th>
               <th>Added</th>
-              <th>Priority</th>
-              <th>Elapsed</th>
+              <th>Progress</th>
+              <th>Processing Time</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -64,23 +77,34 @@
                 }
 
                 var elapsedTime = 0
-                if( file.processing_ended == 0 ) {
+                if( file.processing_ended == 0 )
                   elapsedTime = file.processing_started
-                } 
                 else
-                {
                   elapsedTime = file.processing_ended - file.processing_started
-                }
-                if( file.status !== "queued" ) {
-                  elapsedTime = ""
-                }
+
+                if( file.status == "started" )
+                  elapsedTime = Date.now() - file.processing_started
+
+                var progress = file.progress
+                if( file.status == "finished" )
+                  progress = "100"
+
+                var labelClass = ""
+                if( file.status == "finished" )
+                  labelClass = "label-success"
+                else if ( file.status == "error" )
+                  labelClass = "label-error"
               %>
               <tr class="<%= rowClass %>">
                 <td><%= file.file %></td>
-                <td><time><%= file.created_at %></time></td>
-                <td></td>
-                <td><time><%= elapsedTime %></time></td>
-                <td class="status"><%= file.status %></td>
+                <td><time class="relative"><%= file.created_at %></time></td>
+                <td>
+                  <div class="progress">
+                    <div class="bar bar-success" style="width: <%= progress %>%;"></div>
+                  </div>
+                </td>
+                <td><time class="elapsed"><%= elapsedTime %></time></td>
+                <td class="status"><span class="label <%= labelClass %>"><%= file.status %></span></td>
               </tr>
             <% }) %>
           </tbody>
@@ -88,6 +112,20 @@
       <% } %>
       
     </section>
+
+    <div class="modal hide fade" id="settingsModal" tabindex="-1" role="dialog" aria-labelledby="settingsModalLabel" aria-hidden="true">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="myModalLabel">Settings</h3>
+      </div>
+      <div class="modal-body">
+        
+      </div>
+      <div class="modal-footer">
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+        <button class="btn btn-primary">Save changes</button>
+      </div>
+    </div>
 
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script src="/javascripts/bootstrap.min.js"></script>
