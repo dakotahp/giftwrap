@@ -32,6 +32,9 @@
         <p>Tagline</p>
       </div>  
 
+      <button type="button" class="btn" data-toggle="button" id="auto-refresh">Auto-refresh</button>
+      <p>&nbsp;</p>
+
       <% if (queue.length == 0) { %>
         <div class="alert">
           Your queue is empty! You should move video files to the <code>./processing</code> folder to start processing.
@@ -39,7 +42,6 @@
       <% } %>
 
       <% if (queue.length) { %>
-        <h2>Queue:</h2>
         <table class="table table-striped table-bordered queue">
           <thead>
             <tr>
@@ -69,6 +71,9 @@
                 {
                   elapsedTime = file.processing_ended - file.processing_started
                 }
+                if( file.status !== "queued" ) {
+                  elapsedTime = ""
+                }
               %>
               <tr class="<%= rowClass %>">
                 <td><%= file.file %></td>
@@ -85,6 +90,7 @@
     </section>
 
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+    <script src="/javascripts/bootstrap.min.js"></script>
     <script src="/javascripts/application.js"></script>
 
 </body>

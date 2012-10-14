@@ -1,3 +1,11 @@
+createRefreshTimeout = ->
+  setTimeout( ->
+    window.location.reload(true)
+  , 30000)  
+
+refreshTimeout = createRefreshTimeout()
+refreshTimeoutStatus = true
+
 jsTimeToSeconds = (jsTime) ->
   return jsTime * .001
 
@@ -29,6 +37,16 @@ relativeTime = (timeInPast) ->
   "over " + jsTimeToHours(timeInPast) + " years ago"
 
 $(document).ready( ->
+  $("#auto-refresh").button('toggle')
+  $("#auto-refresh").click( ->
+    if refreshTimeoutStatus
+      clearTimeout(refreshTimeout)
+      refreshTimeoutStatus = false
+    else
+      refreshTimeout = createRefreshTimeout()
+      refreshTimeoutStatus = true
+    true
+  )
 
   $("time").each( ->
     time = $(this).text()
