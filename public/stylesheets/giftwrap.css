@@ -8,3 +8,14 @@ table.queue {
   .status {
     text-transform: capitalize;
   }
+
+footer {
+  text-align: center;
+  color: #aeaeae;
+  font-size: .9em;
+  margin-top: 30px;
+}
+  footer a {
+    color: #aeaeae;
+    text-decoration: underline;
+  }

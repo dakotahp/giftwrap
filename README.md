@@ -36,6 +36,8 @@ To run the app, open Terminal and go to the folder then run:
 
 `node application`
 
+You can access the web interface by running `./open` or going to [http://localhost:4000/](http://localhost:4000/).
+
 By default, the `./process` folder is what is watched for new video files. You can move video files there and they will be automatically processed and output into the `./output` directory as H.264 MP4s.
 
 For seamless autonomy, read below how to automatically get video files from your torrent client to the process folder.
