@@ -1,5 +1,3 @@
-#!/usr/bin/env coffee
-
 ##
 # CONFIGURATION START
 ##
@@ -8,20 +6,22 @@
 watchFileExt = ["mkv", "ts", "m2ts", "avi"]
 
 # Move source video files to trash after processing
-cleanup = true
+cleanup = false
 
-# Automatically moves finished file to iTunes' watched folder (~/Music/iTunes/iTunes Media/Automatically Add to iTunes/) and added to iTunes library
+# Automatically moves finished file to iTunes' watched folder (~/Music/iTunes/iTunes Media/Automatically Add to iTunes/) 
+# and added to iTunes library
 automaticallyAddToItunes = true
 # By default output file is MOVED to iTunes. Set to true if you want to copy instead and leave file in output folder
-copyNotMoveToItunes = false
+copyToItunes = true
 
-# Enable web interface at http://localhost:5000 - requires redis to be installed or Redis To Go cloud service credentials
+# Enable web interface at http://localhost:5000 -
 web_interface = false
 
 redistogo_url = "" # replace with Redis To Go URL if you don't install redis locally
 
 # Watch folder for incoming video files
-#   (If you change this folder to a different drive as your boot drive it may cause issues because of the way Node copies files. Submit a GitHub issue if you run into problems.)
+#   (If you change this folder to a different drive as your boot drive it may cause 
+#    issues because of the way Node copies files. Submit a GitHub issue if you run into problems.)
 watchFolder = "./process"
 
 ##
@@ -29,12 +29,17 @@ watchFolder = "./process"
 ##
 
 
-fs              = require("fs")
-watch           = require("watch")
-ffmpeg          = require("fluent-ffmpeg")
-Metalib         = require("fluent-ffmpeg").Metadata
-ProgressBar     = require('progress')
-startStopDaemon = require("start-stop-daemon")
+fs              = require 'fs'
+http            = require 'http'
+path            = require 'path'
+watch           = require 'watch'
+ffmpeg          = require 'fluent-ffmpeg'
+express         = require 'express'
+Metalib         = require('fluent-ffmpeg').Metadata
+#ProgressBar     = require 'progress'
+#bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
+startStopDaemon = require 'start-stop-daemon'
+
 
 # Libraries
 
@@ -42,9 +47,19 @@ startStopDaemon = require("start-stop-daemon")
 Queue = require("./lib/queue")
 queue = new Queue.class()
 
+# Processing library
+###
+Process = require("./lib/process")
+process = new Process.class({
+  queue: queue
+  ffmpeg: ffmpeg
+  addToItunes: automaticallyAddToItunes
+  copyToItunes: copyToItunes
+})
+###
 
 
-bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
+
 
 _videoMetadata = {}
 _conversionProgress = 0
@@ -78,37 +93,48 @@ _getVideoCodec = (metadata) ->
     "libx264"
 
 _processVideo = (options) ->
-  # Video output type
   options.outputExt    = "mp4"
-  # Audio output bitrate
   options.audioBitrate = "384k"
 
+  queue.setStart(options.position)
+
   # Swap original filename with new format
-  pieces = options.source.split("/")
-  sourceFilename = options.source.replace(/^[a-z]+\//i, "")
-  outputFilename = options.source.replace(/\.[a-z0-9]+$/i, "." + options.outputExt).replace(/^[a-z]+\//i, "")
+  sourcePath = watchFolder + "/" + options.source
+  outputFilename = options.source.replace(/\.[a-z0-9]+$/i, "." + options.outputExt)
 
   # Remove path from beginning
   outputFile = "output/" + outputFilename
 
   #.addOption('-sameq')
   proc = new ffmpeg(
-    source: options.source
+    source: sourcePath
     timeout: 60 * 60
-  ).withVideoCodec(options.videoCodec).withAudioCodec(options.audioCodec).withAudioBitrate(options.audioBitrate).addOption("-strict", "-2").onProgress((progress) ->
-    localProgress = Math.round progress.percent
+  ).withVideoCodec(options.videoCodec)
+  .withAudioCodec(options.audioCodec)
+  .withAudioBitrate(options.audioBitrate)
+  .addOption("-strict", "-2").onProgress((progress) ->
+    localProgress = Math.round progress.percent  
+    queue.updateProgress progress, options.position
+
     #console.log "Progress: " + localProgress.toString() + "%" if localProgress > _conversionProgress
-    #bar.tick if localProgress > _conversionProgress
-    #bar.tick progress.percent
     _conversionProgress = localProgress
-  ).toFormat(options.outputExt).saveToFile(outputFile, (retcode, error) ->
+  ).toFormat(options.outputExt)
+  .saveToFile(outputFile, (retcode, error) ->
     console.log "- File successfully processed to #{outputFile}"
+    
+    queue.setEnd options.position
+    queue.updateStatus "finished", options.position
+    
+    # retcode, error params are useless
+    #queue.updateStatus "error", options.position if error
 
     # Clean up old file
-    _trashSourceFile(options.source, sourceFilename) if cleanup
+    console.log '_trashSourceFile', options.source, sourcePath
+    _trashSourceFile(sourcePath, sourcePath) if cleanup and !error
 
     # Move to iTunes inbox folder
-    _moveToItunes(outputFile, outputFilename) if automaticallyAddToItunes
+    console.log '_moveToItunes', outputFile, outputFilename
+    _moveToItunes(outputFile, outputFilename) if automaticallyAddToItunes and !error
   )
 
 _moveToItunes = (source, destination) ->
@@ -132,29 +158,35 @@ _trashSourceFile = (source, destination) ->
 _validFiletype = (file) ->
   for i of watchFileExt
     regex = new RegExp("." + watchFileExt[i] + "$", "i")
-    return true  if file.match(regex)
+    return true if file.match(regex)
   false
 
 
 startStopDaemon({}, () ->
   watch.createMonitor watchFolder, (monitor) ->
     monitor.on "created", (file, stat) ->
-      inQueueAlready = queue.in file
-      queue.add file unless inQueueAlready
+      pieces = file.split("/")
+      filename = pieces[ pieces.length - 1 ]
+
+      inQueueAlready = queue.in filename
+
+      position = queue.add(filename) unless inQueueAlready
 
       # Do not proceed if duplicate file system event
-      return if not _validFiletype(file) or inQueueAlready
+      return if not _validFiletype(filename) or inQueueAlready
 
       metaObject = new Metalib(file)
       metaObject.get (metadata, err) ->
         _videoMetadata = metadata
+        #console.log(require('util').inspect(metadata, false, null))
+        #process.next()
 
-        #console.log(require('util').inspect(metadata, false, null));
-        console.log "Starting to process #{file}"
         _processVideo
-          source: file
+          source: filename
           audioCodec: _getAudioCodec(metadata)
           videoCodec: _getVideoCodec(metadata)
+          position: position
+
 
     monitor.on "changed", (file, curr, prev) ->
       for i of watchFileExt
@@ -164,3 +196,29 @@ startStopDaemon({}, () ->
           metaObject.get (metadata, err) ->
             #_videoMetadata = metadata
 )
+
+app = express()
+routes = require("./web/routes")
+app.configure ->
+  app.set "port", process.env.PORT or 4000
+  app.set "views", __dirname + "/web/views"
+  app.set "view engine", "ejs"
+  app.use express.favicon()
+  app.use express.logger("dev")
+  app.use express.bodyParser()
+  app.use express.methodOverride()
+  #app.use express.cookieParser("your secret here")
+  app.use app.router
+  app.use express.static(path.join(__dirname, "public"))
+
+app.configure "development", ->
+  app.use express.errorHandler()
+
+app.get "/", (req, res) ->
+  res.render 'index',
+    queue: queue.dump()
+
+http.createServer(app).listen app.get("port"), ->
+  console.log "Express server listening on port " + app.get("port")
+
+
