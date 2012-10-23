@@ -38,6 +38,7 @@ Metalib         = require('fluent-ffmpeg').Metadata
 #ProgressBar     = require 'progress'
 #bar = new ProgressBar('Processing [:bar] :percent :etas', { total: 100 })
 startStopDaemon = require 'start-stop-daemon'
+process.title = "giftwrap"
 
 
 # Libraries
